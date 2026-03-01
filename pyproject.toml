@@ -1,9 +1,9 @@
 [project]
 name = "ai-agent"
-version = "0.0.1"
+version = "0.0.2"
 description = "A personal AI companion with autonomous self-reflection, memory management, and human-like behavior"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "langchain-core>=1.2.16",
     "langchain-openai>=1.1.10",
