@@ -1,0 +1,17 @@
+[project]
+name = "ai-agent"
+version = "0.0.1"
+description = "A personal AI companion with autonomous self-reflection, memory management, and human-like behavior"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "langchain-core>=1.2.16",
+    "langchain-openai>=1.1.10",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+analysis.autoImportCompletions = false
+reportMissingImports = true
+typeCheckingMode = "basic"
