@@ -1,6 +1,6 @@
 [project]
 name = "ai-agent"
-version = "0.0.2"
+version = "0.0.3"
 description = "A personal AI companion with autonomous self-reflection, memory management, and human-like behavior"
 readme = "README.md"
 requires-python = ">=3.11"
