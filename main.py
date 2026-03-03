@@ -1,4 +1,5 @@
 import asyncio
+from typing import List, Tuple
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
@@ -21,48 +22,69 @@ template = ChatPromptTemplate(
     ]
 )
 
+MAX_ITERATIONS = 1000
+MAX_HISTORY = 10
+
+
+async def process_chat_stream(chain, query: str, history: List[Tuple]) -> str:
+    """Helper function of run_model()."""
+
+    assert query and len(query) > 0, "[Program] Query cannot be empty."
+
+    content_acc = ""
+    try:
+        async for chunk in chain.astream({"query": query, "chat_history": history}):
+            if chunk and chunk.content:
+                print(chunk.content, end="", flush=True)
+                content_acc += chunk.content
+        print()
+        return content_acc
+    except Exception as e:
+        print(f"\nStream Error: {e}")
+        return ""
+
 
 async def run_model(model: ChatOpenAI, template: ChatPromptTemplate):
-    chat_history = []
+    assert model is not None, "[Program] Model initialization failed."
+    assert template is not None, "[Program] Template is missing."
 
-    context = template | model
+    chat_history: List[Tuple] = []
+    chain = template | model
 
-    print("--- Chat Started (Type 'exit' or 'quit' to stop) ---")
+    print("--- AI AGENT: Program Online ---")
+    print("Type /exit or /quit to off the system.")
 
+    for _ in range(MAX_ITERATIONS):
+        try:
+            user_input = await asyncio.get_event_loop().run_in_executor(
+                None, input, "> "
+            )
+
+            if not user_input or user_input.lower() in ["/exit", "/quit"]:
+                break
+
+            ai_response = await process_chat_stream(chain, user_input, chat_history)
+
+            if ai_response:
+                chat_history.append(("human", user_input))
+                chat_history.append(("ai", ai_response))
+
+            if len(chat_history) > MAX_HISTORY * 2:
+                chat_history = chat_history[-(MAX_HISTORY * 2) :]
+
+        except asyncio.CancelledError:
+            print("\n[Program] Signal received: Terminating Program.")
+            break
+        except Exception as e:
+            print(f"\n[Recoverable Error]: {e}")
+            continue
+
+    print("--- AI AGENT: Program Offline ---")
+    print("Press Enter to continue.")
+
+
+if __name__ == "__main__":
     try:
-        for _ in range(100):
-            try:
-                user_query = await asyncio.get_event_loop().run_in_executor(
-                    None, input, "> "
-                )
-
-                if user_query.lower() in ["exit", "quit"]:
-                    break
-
-                gen_content = ""
-
-                async for chunk in context.astream(
-                    {"query": user_query, "chat_history": chat_history}
-                ):
-                    gen_content += chunk.content
-                    print(chunk.content, end="", flush=True)
-
-                chat_history.append(("human", user_query))
-                chat_history.append(("ai", gen_content))
-                print()
-
-            except asyncio.CancelledError:
-                print("\n\n[System] Shutdown requested. Press enter to exit.")
-                return
-            except Exception as e:
-                print(f"\n[Error]: {type(e).__name__}: {e}")
-                print("Retrying (history saved).")
-                continue
-    finally:
-        print("--- Session Closed ---")
-
-
-try:
-    asyncio.run(run_model(model, template))
-except KeyboardInterrupt:
-    pass
+        asyncio.run(run_model(model, template))
+    except KeyboardInterrupt:
+        pass
