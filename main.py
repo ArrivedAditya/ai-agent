@@ -2,25 +2,39 @@ import asyncio
 from typing import List, Tuple
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
 
 llm_name: str = "rwkv7-g1d"
 provider_url: str = "http://127.0.0.1:65530/api/oai"
 
-model = ChatOpenAI(model=llm_name, base_url=provider_url, api_key="Anything")
+
+class TranslationResponse(BaseModel):
+    translated: str = Field(description="The translated text output")
+
+
+parser = PydanticOutputParser(pydantic_object=TranslationResponse)
+
+model = ChatOpenAI(
+    model=llm_name,
+    base_url=provider_url,
+    api_key="Anything",
+)
 
 template = ChatPromptTemplate(
     [
         (
             "system",
-            "You are a helpful assistant that translates English to Japanese. Translate the user sentence.",
+            "You are a helpful assistant that translates English to Japanese. Translate the user sentence.\nAlways respond in the following format: \n{format_instructions}",
         ),
         MessagesPlaceholder(variable_name="chat_history"),
         (
             "human",
-            "Translate the word into Japanese language: {query} (think less)",
+            "Translate the word into Japanese language and put in Translated key as value in json: {query} (think less)",
         ),
     ]
 )
+
 
 MAX_ITERATIONS = 1000
 MAX_HISTORY = 10
@@ -33,7 +47,13 @@ async def process_chat_stream(chain, query: str, history: List[Tuple]) -> str:
 
     content_acc = ""
     try:
-        async for chunk in chain.astream({"query": query, "chat_history": history}):
+        async for chunk in chain.astream(
+            {
+                "query": query,
+                "chat_history": history,
+                "format_instructions": parser.get_format_instructions(),
+            }
+        ):
             if chunk and chunk.content:
                 print(chunk.content, end="", flush=True)
                 content_acc += chunk.content
@@ -49,7 +69,7 @@ async def run_model(model: ChatOpenAI, template: ChatPromptTemplate):
     assert template is not None, "[Program] Template is missing."
 
     chat_history: List[Tuple] = []
-    chain = template | model
+    chain = template | model | parser
 
     print("--- AI AGENT: Program Online ---")
     print("Type /exit or /quit to off the system.")
@@ -80,7 +100,7 @@ async def run_model(model: ChatOpenAI, template: ChatPromptTemplate):
             continue
 
     print("--- AI AGENT: Program Offline ---")
-    print("Press Enter to continue.")
+    # print("Press Enter to continue.")
 
 
 if __name__ == "__main__":
